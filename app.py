@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Machine Learning මොඩල් සහ Scaler එක ලෝඩ් කිරීම
 try:
     scaler = joblib.load('BehaviourNet_scaler.pkl')
-    model = joblib.load('behaviournet.pkl')
+    model = joblib.load('BehaviourNet.pkl')
 except Exception as e:
     print("Error loading models. Check if .pkl files exist:", e)
 
