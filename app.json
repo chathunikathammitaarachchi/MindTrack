@@ -1,4 +1,7 @@
 {
   "name": "MindTrack",
-  "displayName": "MindTrack"
+  "displayName": "MindTrack",
+  "android": {
+    "package": "com.anonymous.mindtrack"
+  }
 }
