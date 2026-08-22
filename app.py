@@ -4,27 +4,30 @@ import numpy as np
 
 app = Flask(__name__)
 
-# Machine Learning මොඩල් සහ Scaler එක ලෝඩ් කිරීම
+# PythonAnywhere හි mysite ෆෝල්ඩර් එකේ පීකල් ෆයිල්ස් ඇති තැන දැක්වීම
 try:
-    scaler = joblib.load('BehaviourNet_scaler.pkl')
-    model = joblib.load('BehaviourNet.pkl')
+    scaler = joblib.load('/home/chathunika/mysite/BehaviourNet_scaler.pkl')
+    model = joblib.load('/home/chathunika/mysite/BehaviourNet.pkl')
+    print("Models loaded successfully!")
 except Exception as e:
+    print("Error loading models:", e)
     print("Error loading models. Check if .pkl files exist:", e)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        data = request.json
+        data = request.get_json(force=True, silent=True) or {}
+        print("RECEIVED DATA FROM APP:", data)  
         
         # ML මොඩල් එක බලාපොරොත්තු වන Features 10 අනුපිළිවෙලටම සැකසීම
         screen_time = data.get('daily_screen_time_hours', 0)
-        sleep_duration = data.get('sleep_duration_hours', 1) # 0 න් බෙදීම වැළැක්වීමට 1 යෙදීම
+        sleep_duration = data.get('sleep_duration_hours', 1) 
         
         features = [
             data.get('mental_fatigue_score', 0),
             screen_time,
             data.get('sleep_quality_score', 0),
-            screen_time / sleep_duration, # screen_to_sleep_ratio ගණනය කිරීම
+            screen_time / sleep_duration, 
             data.get('digital_wellness_score', 5), 
             data.get('fatigue_activity_ratio', 1),
             data.get('sleep_efficiency', 0.8),
@@ -33,13 +36,9 @@ def predict():
             data.get('phone_usage_before_sleep_minutes', 0)
         ]
         
-        # NumPy Array එකක් බවට පත් කිරීම
         features_array = np.array([features])
-        
-        # දත්ත Scaler එක හරහා යවා Normalize කිරීම
         scaled_features = scaler.transform(features_array)
         
-        # මොඩල් එක මඟින් ප්‍රතිඵලය (Risk) සහ සම්භාවිතාව (Confidence) ලබා ගැනීම
         prediction = model.predict(scaled_features)
         probabilities = model.predict_proba(scaled_features)
         
@@ -56,6 +55,7 @@ def predict():
         })
         
     except Exception as e:
+        print("PYTHON SERVER ERROR:", str(e))  
         return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':

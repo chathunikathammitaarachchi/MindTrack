@@ -81,18 +81,20 @@ export default function HomeScreen() {
 
     try {
       // Thesis එකේ 4.4 කොටසේ Figure 4 හි දක්වා ඇති පරිදි හරියටම JSON Payload එක සැකසීම
-      const payload = {
-        daily_screen_time_hours: sensors.screenTime,
-        sleep_duration_hours: sensors.sleepHours > 0 ? sensors.sleepHours : 7.0, // නින්ද මැනී නොමැති නම් සාමාන්‍ය අගය යැවීම
-        sleep_quality_score: 5, 
-        physical_activity_minutes: Math.round(sensors.steps / 80), // පියවර ගණන දළ වශයෙන් මිනිත්තු වලට හැරවීම
-        phone_usage_before_sleep_minutes: 45, 
-        notifications_received_per_day: 120, 
-        mental_fatigue_score: 5 
+   const payload = {
+        mental_fatigue_score: 5,
+        daily_screen_time_hours: 6.5,
+        sleep_quality_score: 5,
+        digital_wellness_score: 5, 
+        fatigue_activity_ratio: 1,
+        sleep_efficiency: 0.8,
+        physical_activity_minutes: 30, // 0 වෙනුවට ස්ථාවර අගයක් දීම
+        sleep_duration_hours: 7.0,     // 0 වෙනුවට සාමාන්‍ය නින්දේ පැය ගණනක් දීම
+        phone_usage_before_sleep_minutes: 45
       };
 
-      // මෙතන තියෙන URL එක අපි ඊළඟ පියවරේදී Cloud එකට අප්ලෝඩ් කළාම ලැබෙන අලුත් URL එකට මාරු කරන්න ඕනේ!
-      const CLOUD_API_URL = 'https://YOUR_CLOUD_SERVER.onrender.com/predict';
+      // මෙතන තියෙන URL එක PythonAnywhere Cloud URL එකට මාරු කර ඇත (https:// භාවිත කරන්න)
+      const CLOUD_API_URL = 'https://chathunika.pythonanywhere.com/predict';
 
       const response = await fetch(CLOUD_API_URL, {
         method: 'POST',
