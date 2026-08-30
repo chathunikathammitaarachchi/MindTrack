@@ -2,35 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, AppState, Alert } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendDataToBehaviorNet } from '../services/api';
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<{ risk_level?: string; confidence?: string } | null>(null);
   
-  // සියලුම අගයන් සම්පූර්ණයෙන්ම ස්වයංක්‍රීයව (Automatic) සෙන්සර් සහ ඇප් භාවිතය මත පදනම් වේ
+  // All values are automatically calculated based on sensor and app usage
   const [sensors, setSensors] = useState({
     steps: 0,           
     sleepHours: 0, 
     activeMinutes: 0,
     fatigueScore: 0,
-    sessionScreenMinutes: 0 // ඇප් එක පාවිච්චි කරන සහ ෆෝන් එක ඔන් කරලා තියෙන වෙලාව මත ස්වයංක්‍රීයව වැඩි වේ
+    sessionScreenMinutes: 0 // Automatically increments based on active screen usage time
   });
 
   useEffect(() => {
     let accelerometerSubscription: any;
 
-    // 1. Accelerometer මඟින් Mobility Tally එක වඩාත් සංවේදීව සහ ස්වයංක්‍රීයව ලබා ගැනීම
+    // 1. Automatically fetch sensitive mobility tally via Accelerometer
     const setupAccelerometer = () => {
-      Accelerometer.setUpdateInterval(300); // තත්පර 0.3 කින් අප්ඩේට් වේ
+      Accelerometer.setUpdateInterval(300); // Updates every 0.3 seconds
       
       accelerometerSubscription = Accelerometer.addListener(accelerometerData => {
         const { x, y, z } = accelerometerData;
         const acceleration = Math.sqrt(x * x + y * y + z * z);
         
-        // ෆෝන් එකේ කුඩා චලනයක් වුවද හඳුනා ගැනීම සඳහා සීමාව සකස් කර ඇත
+        // Threshold configured to detect subtle device movements
         if (acceleration > 1.05 || acceleration < 0.95) {
           setSensors(prev => {
-            const newSteps = prev.steps + 2; // Mobility එක වඩාත් පැහැදිලිව වැඩි වීමට
+            const newSteps = prev.steps + 2; // Increments step tally for mobility tracking
             const newActiveMinutes = Math.round(newSteps / 20); 
             return { 
               ...prev, 
@@ -45,10 +46,10 @@ export default function HomeScreen() {
 
     setupAccelerometer();
 
-    // 2. ඇප් එක Foreground එකේ තියෙන වෙලාව සහ Background යන වෙලාව මත Screen Time සහ Sleep ස්වයංක්‍රීයව ගණනය කිරීම
+    // 2. Automatically calculate Screen Time and Sleep based on Foreground/Background app states
     const timer = setInterval(() => {
       setSensors(prev => ({ ...prev, sessionScreenMinutes: prev.sessionScreenMinutes + 1 }));
-    }, 60000); // සෑම මිනිත්තුවකට වරක් Screen Time එක ස්වයංක්‍රීයව වැඩි වේ
+    }, 60000); // Automatically increments Screen Time every minute
 
     const handleAppStateChange = async (nextAppState: string) => {
       try {
@@ -80,17 +81,17 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // 3. සම්පූර්ණයෙන්ම ස්වයංක්‍රීයව ලබාගත් ඩාටා Flask API වෙත යැවීම
+  // 3. Send automatically aggregated data to Flask API
   const runAutoAssessment = async () => {
     setLoading(true);
 
     try {
-      // ස්වයංක්‍රීයව එකතු වූ විනාඩි මත පදනම් වූ Screen Time එක පැය වලින් සකස් කිරීම (අවම වශයෙන් සාමාන්‍ය අගයක් සමඟ එකතු වේ)
+      // Calculate screen time hours based on accumulated session minutes
       const autoScreenTime = Number((4.5 + (sensors.sessionScreenMinutes / 60) + (sensors.activeMinutes / 30)).toFixed(1));
 
       const payload = {
         mental_fatigue_score: sensors.fatigueScore > 0 ? sensors.fatigueScore : 3,
-        daily_screen_time_hours: autoScreenTime, // ෆෝන් එකේ භාවිතය මත ස්වයංක්‍රීයව හැදෙන Screen Time එක
+        daily_screen_time_hours: autoScreenTime, // Screen time generated from phone usage
         sleep_quality_score: sensors.sleepHours > 2 ? 8 : 5, 
         digital_wellness_score: 5, 
         fatigue_activity_ratio: sensors.activeMinutes > 0 ? Number((sensors.fatigueScore / sensors.activeMinutes).toFixed(2)) : 1,
@@ -100,24 +101,9 @@ export default function HomeScreen() {
         phone_usage_before_sleep_minutes: 30
       };
 
-      console.log("🚀 BehaviourNet සර්වර් එකට යවන සම්පූර්ණයෙන්ම Automatic ඩාටා:", payload);
+      console.log("🚀 Fully automatic data sent to the BehaviourNet server:", payload);
 
-      const CLOUD_API_URL = 'https://chathunika.pythonanywhere.com/predict';
-
-      const response = await fetch(CLOUD_API_URL, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await sendDataToBehaviorNet(payload);
       
       setPrediction({
         risk_level: data.risk_level, 
@@ -125,7 +111,7 @@ export default function HomeScreen() {
       });
 
     } catch (error) {
-      Alert.alert("Connection Error", "Cloud සර්වර් එක සමඟ සම්බන්ධ වීමේ දෝෂයක් ඇත.");
+      Alert.alert("Connection Error", "Failed to connect to the Cloud server.");
       console.error(error);
     } finally {
       setLoading(false);
@@ -142,7 +128,7 @@ export default function HomeScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Aggregated Proxies (24h Window)</Text>
         
-        {/* දැන් මෙහි කිසිදු ටයිප් කිරීමක් අවශ්‍ය නැත; සියල්ල ස්වයංක්‍රීයව ජෙනරේට් වේ */}
+        {/* Data automatically generated without requiring manual input */}
         <Text style={styles.dataPoint}>📱 Screen On-Time (Auto): {Number((4.5 + (sensors.sessionScreenMinutes / 60) + (sensors.activeMinutes / 30)).toFixed(1))} hrs</Text>
         <Text style={styles.dataPoint}>🏃 Mobility Tally (Live): {sensors.steps} steps</Text> 
         <Text style={styles.dataPoint}>⏱️ Active Minutes: {sensors.activeMinutes} mins</Text>

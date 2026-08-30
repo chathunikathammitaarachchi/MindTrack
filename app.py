@@ -1,12 +1,18 @@
 from flask import Flask, request, jsonify
 import joblib
 import numpy as np
+import os
 
 app = Flask(__name__)
 
+# Base directory setup for reliable model loading across local & cloud environments
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCALER_PATH = '/home/chathunika/mysite/BehaviourNet_scaler.pkl' if os.path.exists('/home/chathunika/mysite/BehaviourNet_scaler.pkl') else os.path.join(BASE_DIR, 'BehaviourNet_scaler.pkl')
+MODEL_PATH = '/home/chathunika/mysite/BehaviourNet.pkl' if os.path.exists('/home/chathunika/mysite/BehaviourNet.pkl') else os.path.join(BASE_DIR, 'BehaviourNet.pkl')
+
 try:
-    scaler = joblib.load('/home/chathunika/mysite/BehaviourNet_scaler.pkl')
-    model = joblib.load('/home/chathunika/mysite/BehaviourNet.pkl')
+    scaler = joblib.load(SCALER_PATH)
+    model = joblib.load(MODEL_PATH)
     print("Models loaded successfully!")
 except Exception as e:
     print("Error loading models:", e)
@@ -14,11 +20,11 @@ except Exception as e:
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # යූසර් එවන ඕනෑම JSON එකක් හෝ හිස් එකක් ආරක්ෂිතව ලබා ගැනීම
+        # Safely parse incoming JSON request or fallback to empty dict
         data = request.get_json(force=True, silent=True) or {}
         print("RECEIVED DATA FROM APP:", data)  
         
-        # සියලුම අගයන් ආරක්ෂිතව අංක බවට පත් කර ගැනීම (None හෝ 0 ආවත් 400 එරර් එකක් නොයන ලෙස)
+        # Convert all values safely to numbers with defaults to avoid 400 errors
         mental_fatigue = float(data.get('mental_fatigue_score', 5) or 5)
         screen_time = float(data.get('daily_screen_time_hours', 6.0) or 6.0)
         sleep_quality = float(data.get('sleep_quality_score', 5) or 5)
@@ -29,7 +35,7 @@ def predict():
         sleep_duration = float(data.get('sleep_duration_hours', 7.0) or 7.0)
         phone_before_sleep = float(data.get('phone_usage_before_sleep_minutes', 30) or 30)
         
-        # බිංදුවෙන් බෙදීම (Division by zero) වැළැක්වීමට ආරක්ෂිත පියවරක්
+        # Guard against division by zero
         safe_sleep = sleep_duration if sleep_duration > 0 else 7.0
         screen_sleep_ratio = screen_time / safe_sleep
 
@@ -60,7 +66,7 @@ def predict():
             "risk_level": risk_level,
             "probability": {
                 "high_risk": high_risk_prob,
-                "low_risk": 100 - high_risk_prob
+                "low_risk": round(100 - high_risk_prob, 2)
             }
         })
         
